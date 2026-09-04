@@ -3,7 +3,7 @@
    così dopo la prima apertura l'app funziona completamente senza rete.
    Per pubblicare una versione nuova basta cambiare CACHE. */
 
-var CACHE = "diario-ul-v4";
+var CACHE = "diario-ul-v5";
 
 var ASSETS = [
   "./",
@@ -19,9 +19,20 @@ var ASSETS = [
 self.addEventListener("install", function (event) {
   event.waitUntil(
     caches.open(CACHE)
-      .then(function (cache) { return cache.addAll(ASSETS); })
+      .then(function (cache) {
+        // addAll fa una scrittura in blocco: e' l'unica forma che si e'
+        // dimostrata affidabile qui. Scritture separate sulla stessa cache
+        // (in parallelo o in sequenza) falliscono con "Entry already exists"
+        // e l'installazione salta, lasciando il worker mai attivato.
+        return cache.addAll(ASSETS);
+      })
       .then(function () { return self.skipWaiting(); })
   );
+});
+
+// richiesta di attivazione immediata da parte della pagina
+self.addEventListener("message", function (event) {
+  if (event.data && event.data.type === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("activate", function (event) {
@@ -62,7 +73,11 @@ self.addEventListener("fetch", function (event) {
         // metto in cache anche ciò che non era nel precache
         if (res && res.status === 200 && res.type === "basic") {
           var copy = res.clone();
-          caches.open(CACHE).then(function (c) { c.put(req, copy); });
+          // una scrittura concorrente qui puo' fallire: non deve mai
+          // compromettere la risposta che stiamo restituendo
+          caches.open(CACHE)
+            .then(function (c) { return c.put(req, copy); })
+            .catch(function () {});
         }
         return res;
       }).catch(function () {

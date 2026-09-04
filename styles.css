@@ -538,6 +538,11 @@ button{font-family:inherit;cursor:pointer}
 
 .status{font-size:0.68rem;color:var(--ink-faint);text-align:center;padding:0.4rem 1rem 0;line-height:1.4}
 .version{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:0.5rem;
+  flex-wrap:wrap;
   font-family:var(--mono);
   font-size:0.63rem;
   color:var(--ink-faint);
@@ -546,6 +551,18 @@ button{font-family:inherit;cursor:pointer}
   padding:0.25rem 1rem 0;
   letter-spacing:0.02em;
 }
+.version-btn{
+  font-family:inherit;
+  font-size:inherit;
+  letter-spacing:inherit;
+  border:none;
+  background:transparent;
+  color:var(--accent);
+  text-decoration:underline;
+  padding:0.25rem 0.3rem;
+  font-weight:600;
+}
+.version-btn[disabled]{color:var(--ink-faint);text-decoration:none;cursor:default}
 
 /* ---------- dialog ---------- */
 .overlay{

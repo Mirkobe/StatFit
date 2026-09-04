@@ -46,7 +46,7 @@
   /* Versione del codice effettivamente in esecuzione: se il telefono sta ancora
      servendo una copia vecchia dalla cache, qui si vede il numero vecchio.
      Va tenuta allineata a CACHE dentro sw.js. */
-  var APP_VERSION = "4";
+  var APP_VERSION = "5";
   var APP_DATE = "4 set 2026";
 
   var DELOAD_AFTER = 20;   // 5 settimane x 4 sedute
@@ -1174,12 +1174,94 @@
     toast("App installata");
   });
 
-  /* ---------- SERVICE WORKER ---------- */
+  /* ---------- SERVICE WORKER E AGGIORNAMENTO ----------
+     Ricontrollare non basta: la pagina già aperta continua a eseguire il
+     codice vecchio finché non si ricarica. Il segnale che il codice nuovo
+     è davvero al comando è "controllerchange"; solo lì ricarichiamo. */
+  var updating = false;
+
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", function () {
       navigator.serviceWorker.register("./sw.js").catch(function () {});
     });
+    navigator.serviceWorker.addEventListener("controllerchange", function () {
+      if (!updating) return;          // alla primissima installazione non ricarichiamo
+      updating = false;
+      reloadOnce();
+    });
+  } else {
+    $("updateBtn").hidden = true;
   }
+
+  function endUpdate(btn, message) {
+    updating = false;
+    btn.disabled = false;
+    btn.textContent = "cerca aggiornamenti";
+    if (message) toast(message);
+  }
+
+  var reloaded = false;
+  function reloadOnce() {
+    if (reloaded) return;
+    reloaded = true;
+    location.reload();
+  }
+
+  $("updateBtn").addEventListener("click", function () {
+    var btn = this;
+    if (btn.disabled) return;
+
+    if (!("serviceWorker" in navigator)) { reloadOnce(); return; }
+    if (navigator.onLine === false) {
+      toast("Serve la connessione per cercare aggiornamenti");
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "controllo…";
+
+    var settled = false;
+    function finish(msg) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      endUpdate(btn, msg);
+    }
+    var timer = setTimeout(function () { finish("Nessun aggiornamento disponibile"); }, 15000);
+
+    // arma il ricaricamento solo quando un worker nuovo esiste davvero
+    function watch(sw) {
+      if (!sw) return false;
+      settled = true;
+      clearTimeout(timer);
+      updating = true;                 // sblocca il reload su controllerchange
+      btn.textContent = "aggiorno…";
+      if (sw.state === "activated") { reloadOnce(); return true; }
+      sw.addEventListener("statechange", function () {
+        if (sw.state === "activated") reloadOnce();
+      });
+      return true;
+    }
+
+    navigator.serviceWorker.getRegistration().then(function (reg) {
+      if (!reg) {
+        // nessun service worker: l'app non è in modalità offline su questa apertura
+        navigator.serviceWorker.register("./sw.js").catch(function () {});
+        finish("Modalità offline non attiva: riapri l'app con la connessione");
+        return;
+      }
+      if (watch(reg.waiting || reg.installing)) {
+        if (reg.waiting) { try { reg.waiting.postMessage({ type: "SKIP_WAITING" }); } catch (e) {} }
+        return;
+      }
+      return reg.update().then(function () {
+        if (watch(reg.installing || reg.waiting)) return;
+        finish("Sei già alla versione più recente");
+      });
+    }).catch(function () {
+      finish("Controllo non riuscito: verifica la connessione");
+    });
+  });
 
   /* ---------- AVVIO ---------- */
   loadAll();

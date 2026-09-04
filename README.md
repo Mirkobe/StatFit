@@ -62,6 +62,23 @@ In fondo alla schermata iniziale l'app scrive la versione del codice **realmente
 esecuzione**: se il telefono sta ancora servendo una copia vecchia dalla cache, lì compare
 il numero vecchio. È il modo più rapido per capire se un aggiornamento è arrivato davvero.
 
+Accanto c'è **cerca aggiornamenti**, che forza il controllo: se trova un service worker
+nuovo lo attiva e ricarica la pagina, altrimenti dice che sei già aggiornato. Ricarica
+**solo** quando un worker nuovo esiste davvero — una ricarica incondizionata non
+servirebbe a nulla, perché la pagina tornerebbe dalla stessa cache.
+
+GitHub Pages serve gli asset con `max-age=600`: se cerchi aggiornamenti entro pochi minuti
+dalla pubblicazione, il worker nuovo potrebbe archiviare file ancora vecchi. In quel caso
+la riga della versione lo mostra e basta ripetere il controllo più tardi.
+
+### Nota per chi tocca `sw.js`
+
+Il precaching deve restare una **singola `cache.addAll(ASSETS)`**. Scritture separate sulla
+stessa cache — in parallelo o in sequenza, con `cache.put` o `cache.add`, e `addAll` con
+richieste in modalità `reload` — falliscono con `InvalidAccessError: Entry already exists`:
+l'installazione salta, il worker non attiva mai e l'app resta senza modalità offline **senza
+alcun errore visibile**, perché la registrazione risulta comunque riuscita.
+
 ## Dati e backup
 
 I dati restano **su quel telefono** (`localStorage` del browser), non su un server:
