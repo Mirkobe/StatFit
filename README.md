@@ -67,6 +67,28 @@ nessuno li vede, ma nessuno li salva al posto tuo.
 
 Disinstallare l'app o cancellare i dati del browser cancella lo storico: **esporta prima**.
 
+## Peso corporeo
+
+La sezione peso registra una pesata al giorno (reinserirla lo stesso giorno la corregge,
+non la duplica) e la mostra su un grafico.
+
+**Perché il grafico mostra due cose diverse.** Il peso giornaliero oscilla di 1-2 kg per
+acqua, glicogeno e contenuto intestinale: la singola pesata non dice quasi nulla. Quindi:
+
+- i **punti grigi** sono le misurazioni grezze, tenute volutamente in secondo piano;
+- la **linea** è la media mobile a 7 giorni — il segnale su cui decidere.
+
+**Il ritmo settimanale** non è la differenza fra due pesate (amplificherebbe il rumore) ma la
+pendenza di una regressione ai minimi quadrati sugli ultimi 21 giorni, espressa in kg/settimana
+e in %/settimana. Servono almeno 4 pesate distribuite su 2 settimane perché abbia senso: sotto
+quella soglia l'app mostra `—` invece di un numero inventato.
+
+L'etichetta accanto al ritmo valuta il valore rispetto a una fase di **definizione**
+(target: −0,5% / −0,75% del peso a settimana). Le soglie stanno in `renderWeightStats()`
+dentro `app.js`: se passi a una fase di massa vanno cambiate lì.
+
+Le pesate sono incluse nell'export/import del backup.
+
 ## Modificare il programma
 
 Gli esercizi stanno all'inizio di `app.js`, nella costante `PROGRAM`. Ogni esercizio ha:

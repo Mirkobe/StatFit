@@ -44,6 +44,19 @@
     <div class="section-label">Ultimi allenamenti</div>
     <div class="card" id="recentList"></div>
 
+    <div class="section-label">Peso corporeo</div>
+    <div class="card weight-card">
+      <div class="w-quick">
+        <div class="field w-field">
+          <input id="wInput" type="number" inputmode="decimal" step="0.1" min="0" placeholder="76,5" aria-label="Peso di oggi in chilogrammi">
+          <span class="unit">kg</span>
+        </div>
+        <button class="btn btn-primary" id="wSave">Registra</button>
+      </div>
+      <div class="w-summary" id="wSummary"></div>
+      <button class="btn btn-block" id="wOpen">Grafico e storico</button>
+    </div>
+
     <div class="section-label">Backup</div>
     <div class="card backup-card">
       <p id="backupInfo">Nessun backup esportato.</p>
@@ -74,6 +87,36 @@
   <section id="screen-history" class="stack" hidden>
     <div class="section-label">Storico completo</div>
     <div class="card" id="fullList"></div>
+  </section>
+
+  <!-- ============ PESO ============ -->
+  <section id="screen-weight" class="stack" hidden>
+
+    <div class="card weight-card">
+      <div class="w-quick">
+        <div class="field w-field">
+          <input id="wInput2" type="number" inputmode="decimal" step="0.1" min="0" placeholder="76,5" aria-label="Peso di oggi in chilogrammi">
+          <span class="unit">kg</span>
+        </div>
+        <button class="btn btn-primary" id="wSave2">Registra</button>
+      </div>
+      <div class="w-summary" id="wSummary2"></div>
+    </div>
+
+    <div class="w-ranges" id="wRanges" role="group" aria-label="Intervallo di tempo"></div>
+
+    <div class="card w-stats" id="wStats"></div>
+
+    <div class="card w-chartcard">
+      <div class="w-chart-title">Andamento del peso</div>
+      <div class="w-chart-sub" id="wChartSub">Linea: media mobile 7 giorni. Punti: singole misurazioni.</div>
+      <div class="w-chartwrap" id="wChartWrap">
+        <div class="w-tip" id="wTip" hidden></div>
+      </div>
+    </div>
+
+    <div class="section-label">Misurazioni</div>
+    <div class="card" id="wList"></div>
   </section>
 
   <!-- ============ DETTAGLIO ============ -->

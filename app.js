@@ -50,11 +50,19 @@
   var state = { nextDayIndex: 0, sinceDeload: 0, total: 0, lastBackup: null, sinceBackup: 0 };
   var progress = {};
   var sessions = [];
+  var weights = [];        // [{date:"YYYY-MM-DD", kg:Number}] sempre ordinato per data crescente
   var live = null;
   var wakeLock = null;
   var deferredInstall = null;
+  var wRange = 90;         // giorni mostrati nel grafico e nell'elenco
 
-  var LS = { state: "fit.ul.state", prog: "fit.ul.progress", sess: "fit.ul.sessions", live: "fit.ul.live" };
+  var LS = {
+    state: "fit.ul.state",
+    prog: "fit.ul.progress",
+    sess: "fit.ul.sessions",
+    live: "fit.ul.live",
+    weight: "fit.ul.weight"
+  };
 
   /* =========================  UTIL  ========================= */
   function $(id) { return document.getElementById(id); }
@@ -127,6 +135,7 @@
   function saveState() { lsSet(LS.state, state); }
   function saveProgress() { lsSet(LS.prog, progress); }
   function saveSessions() { lsSet(LS.sess, sessions); }
+  function saveWeights() { lsSet(LS.weight, weights); }
   function persistLive() { lsSet(LS.live, live); }
 
   function loadAll() {
@@ -140,7 +149,20 @@
     }
     var p = lsGet(LS.prog, null); if (p) progress = p;
     var se = lsGet(LS.sess, null); if (se && se.length) sessions = se;
+    var w = lsGet(LS.weight, null); if (w && w.length) weights = normalizeWeights(w);
     var lv = lsGet(LS.live, null); if (lv && lv.dayKey) live = lv;
+  }
+
+  // tiene solo voci valide, una per data, ordinate dalla più vecchia
+  function normalizeWeights(list) {
+    var byDate = {};
+    (list || []).forEach(function (e) {
+      if (!e || !e.date) return;
+      var kg = Number(e.kg);
+      if (!isFinite(kg) || kg <= 0) return;
+      byDate[e.date] = { date: e.date, kg: kg };
+    });
+    return Object.keys(byDate).sort().map(function (d) { return byDate[d]; });
   }
 
   // chiede al browser di non buttare via i dati sotto pressione di memoria
@@ -162,7 +184,8 @@
       exportedAt: new Date().toISOString(),
       state: state,
       progress: progress,
-      sessions: sessions
+      sessions: sessions,
+      weights: weights
     };
     var blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     var url = URL.createObjectURL(blob);
@@ -194,10 +217,12 @@
       }
       ask("Sostituire i dati attuali con il backup del " +
           (data.exportedAt ? data.exportedAt.slice(0, 10) : "?") +
-          " (" + data.sessions.length + " allenamenti)? I dati presenti ora andranno persi.",
+          " (" + data.sessions.length + " allenamenti, " +
+          ((data.weights && data.weights.length) || 0) + " pesate)? I dati presenti ora andranno persi.",
         "Importa", function () {
           sessions = data.sessions || [];
           progress = data.progress || {};
+          weights = normalizeWeights(data.weights || []);
           if (data.state) {
             state.nextDayIndex = data.state.nextDayIndex || 0;
             state.sinceDeload = data.state.sinceDeload || 0;
@@ -205,7 +230,7 @@
             state.lastBackup = data.state.lastBackup || null;
             state.sinceBackup = data.state.sinceBackup || 0;
           }
-          saveState(); saveProgress(); saveSessions();
+          saveState(); saveProgress(); saveSessions(); saveWeights();
           renderHome();
           toast("Backup importato");
         });
@@ -260,7 +285,7 @@
 
   /* =========================  SCHERMATE  ========================= */
   function show(which) {
-    ["home", "workout", "history", "detail"].forEach(function (s) {
+    ["home", "workout", "history", "detail", "weight"].forEach(function (s) {
       $("screen-" + s).hidden = (s !== which);
     });
     $("backBtn").hidden = (which === "home");
@@ -319,6 +344,8 @@
 
     renderList($("recentList"), sessions.slice(0, 6),
       "Nessun allenamento registrato.<br>Inizia il primo per costruire lo storico.");
+
+    renderWeightSummary();
 
     $("statusLine").textContent = "Dati salvati su questo dispositivo · " + sessions.length + " allenamenti in archivio";
   }
@@ -569,6 +596,415 @@
     show("detail");
   }
 
+  /* =========================================================
+     PESO CORPOREO
+     Il peso giornaliero oscilla di 1-2 kg per acqua e glicogeno:
+     il segnale utile è la media mobile, non la singola pesata.
+     ========================================================= */
+  var DAY = 86400000;
+  function dateMs(iso) {
+    var p = String(iso).split("-");
+    return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])).getTime();
+  }
+
+  // media delle pesate nei 7 giorni che finiscono con quella all'indice i
+  function trend7(list, i) {
+    var end = dateMs(list[i].date), start = end - 6 * DAY, sum = 0, n = 0;
+    for (var j = i; j >= 0; j--) {
+      if (dateMs(list[j].date) < start) break;
+      sum += list[j].kg; n++;
+    }
+    return sum / n;
+  }
+
+  // ritmo in kg/settimana: regressione ai minimi quadrati sulle ultime `days` giornate.
+  // Più robusto della differenza fra due pesate, che amplifica il rumore.
+  function rateKgWeek(list, days) {
+    if (list.length < 4) return null;
+    var last = dateMs(list[list.length - 1].date);
+    var from = last - days * DAY;
+    var pts = list.filter(function (e) { return dateMs(e.date) >= from; });
+    if (pts.length < 4) return null;
+    var span = (dateMs(pts[pts.length - 1].date) - dateMs(pts[0].date)) / DAY;
+    if (span < 7) return null;
+    var n = pts.length, sx = 0, sy = 0, sxx = 0, sxy = 0;
+    pts.forEach(function (p) {
+      var x = (dateMs(p.date) - from) / DAY, y = p.kg;
+      sx += x; sy += y; sxx += x * x; sxy += x * y;
+    });
+    var den = n * sxx - sx * sx;
+    if (!den) return null;
+    return ((n * sxy - sx * sy) / den) * 7;
+  }
+
+  function inRange(list, days) {
+    if (!days) return list.slice();
+    if (!list.length) return [];
+    var from = dateMs(list[list.length - 1].date) - (days - 1) * DAY;
+    return list.filter(function (e) { return dateMs(e.date) >= from; });
+  }
+
+  function addWeight(value) {
+    var kg = parseFloat(String(value).replace(",", "."));
+    if (!isFinite(kg) || kg <= 0 || kg > 500) { toast("Inserisci un peso valido"); return false; }
+    var today = todayISO();
+    var existing = null;
+    weights.forEach(function (e) { if (e.date === today) existing = e; });
+    if (existing) existing.kg = kg;
+    else weights.push({ date: today, kg: kg });
+    weights = normalizeWeights(weights);
+    saveWeights();
+    toast(existing ? "Peso di oggi aggiornato" : "Peso registrato");
+    return true;
+  }
+
+  function wireWeightInput(inputId, buttonId) {
+    var input = $(inputId), btn = $(buttonId);
+    function submit() {
+      if (addWeight(input.value)) {
+        input.value = "";
+        input.blur();
+        renderWeightSummary();
+        if (!$("screen-weight").hidden) renderWeightScreen();
+      }
+    }
+    btn.addEventListener("click", submit);
+    input.addEventListener("keydown", function (e) { if (e.key === "Enter") submit(); });
+  }
+
+  /* ---------- riepilogo in home ---------- */
+  function renderWeightSummary() {
+    var texts = [];
+    if (!weights.length) {
+      texts.push("Nessuna pesata registrata. Pesati la mattina a digiuno, sempre nelle stesse condizioni.");
+    } else {
+      var last = weights[weights.length - 1];
+      var t = trend7(weights, weights.length - 1);
+      texts.push("Tendenza <strong>" + t.toFixed(1) + " kg</strong> · ultima pesata " +
+        last.kg.toFixed(1) + " kg il " + prettyDate(last.date));
+      var r = rateKgWeek(weights, 21);
+      if (r !== null) {
+        texts.push((r < 0 ? "−" : "+") + Math.abs(r).toFixed(2) + " kg/settimana");
+      }
+    }
+    var host = $("wSummary"), host2 = $("wSummary2");
+    var html = texts.join("<br>");
+    if (host) host.innerHTML = html;
+    if (host2) host2.innerHTML = html;
+  }
+
+  /* ---------- statistiche ---------- */
+  function renderWeightStats() {
+    var host = $("wStats");
+    host.innerHTML = "";
+    if (!weights.length) { host.hidden = true; return; }
+    host.hidden = false;
+
+    var trend = trend7(weights, weights.length - 1);
+    var rate = rateKgWeek(weights, 21);
+
+    host.appendChild(statTile(
+      "Peso di tendenza",
+      trend.toFixed(1), "kg",
+      "media 7 giorni · " + weights.length + " pesate in archivio",
+      null
+    ));
+
+    if (rate === null) {
+      host.appendChild(statTile("Ritmo settimanale", "—", "",
+        "servono almeno 4 pesate distribuite su 2 settimane", null));
+    } else {
+      var pct = (rate / trend) * 100;
+      var chip;
+      if (pct <= -0.9) chip = { cls: "chip-warn", txt: "più veloce del target" };
+      else if (pct <= -0.35) chip = { cls: "chip-ok", txt: "in linea con il taglio" };
+      else if (pct < 0.15) chip = { cls: "chip", txt: "sostanzialmente stabile" };
+      else chip = { cls: "chip-warn", txt: "in aumento" };
+      host.appendChild(statTile(
+        "Ritmo settimanale",
+        (rate < 0 ? "−" : "+") + Math.abs(rate).toFixed(2), "kg",
+        (pct < 0 ? "−" : "+") + Math.abs(pct).toFixed(2) + "%/sett · regressione 21 giorni",
+        chip
+      ));
+    }
+  }
+
+  function statTile(label, value, unit, sub, chip) {
+    var d = document.createElement("div"); d.className = "w-stat";
+    var l = document.createElement("div"); l.className = "lab"; l.textContent = label;
+    var v = document.createElement("div"); v.className = "val"; v.textContent = value;
+    if (unit) { var u = document.createElement("span"); u.className = "u"; u.textContent = unit; v.appendChild(u); }
+    var s = document.createElement("div"); s.className = "sub"; s.textContent = sub;
+    d.appendChild(l); d.appendChild(v); d.appendChild(s);
+    if (chip) {
+      var c = document.createElement("span");
+      c.className = "chip " + chip.cls;
+      c.textContent = chip.txt;
+      d.appendChild(c);
+    }
+    return d;
+  }
+
+  /* ---------- grafico ---------- */
+  var SVGNS = "http://www.w3.org/2000/svg";
+  function svgEl(name, attrs) {
+    var e = document.createElementNS(SVGNS, name);
+    for (var k in attrs) if (attrs.hasOwnProperty(k)) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+  function niceStep(span, target) {
+    var raw = span / target;
+    var steps = [0.1, 0.2, 0.25, 0.5, 1, 2, 2.5, 5, 10];
+    for (var i = 0; i < steps.length; i++) if (steps[i] >= raw) return steps[i];
+    return 10;
+  }
+  var shortMon = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
+  function shortDate(iso) {
+    var p = String(iso).split("-");
+    return Number(p[2]) + " " + shortMon[Number(p[1]) - 1];
+  }
+
+  function renderWeightChart() {
+    var wrap = $("wChartWrap");
+    var tip = $("wTip");
+    // rimuovo solo il grafico precedente, non il tooltip
+    var old = wrap.querySelector("svg");
+    if (old) wrap.removeChild(old);
+    tip.hidden = true;
+
+    var data = inRange(weights, wRange);
+    var sub = $("wChartSub");
+
+    if (data.length < 2) {
+      sub.textContent = data.length === 1
+        ? "Una sola misurazione: servono almeno due pesate per tracciare l'andamento."
+        : "Nessuna misurazione in questo intervallo.";
+      return;
+    }
+    sub.textContent = "Linea: media mobile 7 giorni. Punti: singole misurazioni.";
+
+    // la media mobile va calcolata su tutto lo storico, non solo sulla finestra
+    var trendAll = weights.map(function (_, i) { return trend7(weights, i); });
+    var offset = weights.length - data.length;
+    var trendVals = data.map(function (_, i) { return trendAll[offset + i]; });
+
+    var W = Math.max(260, wrap.clientWidth || 320);
+    var PLOT_H = 190, PAD_T = 12, PAD_B = 24, PAD_L = 36, PAD_R = 14;
+    var H = PLOT_H + PAD_B;
+    var innerW = W - PAD_L - PAD_R;
+    var innerH = PLOT_H - PAD_T;
+
+    var xs = data.map(function (e) { return dateMs(e.date); });
+    var x0 = xs[0], x1 = xs[xs.length - 1];
+    if (x1 === x0) x1 = x0 + DAY;
+
+    var allY = data.map(function (e) { return e.kg; }).concat(trendVals);
+    var yMin = Math.min.apply(null, allY), yMax = Math.max.apply(null, allY);
+    if (yMax - yMin < 1) { var mid = (yMax + yMin) / 2; yMin = mid - 0.6; yMax = mid + 0.6; }
+    var step = niceStep(yMax - yMin, 4);
+    yMin = Math.floor(yMin / step) * step;
+    yMax = Math.ceil(yMax / step) * step;
+
+    function X(ms) { return PAD_L + ((ms - x0) / (x1 - x0)) * innerW; }
+    function Y(kg) { return PAD_T + (1 - (kg - yMin) / (yMax - yMin)) * innerH; }
+
+    var svg = svgEl("svg", {
+      viewBox: "0 0 " + W + " " + H,
+      width: W, height: H,
+      role: "img",
+      tabindex: "0",
+      "aria-label": "Andamento del peso: da " + prettyDate(data[0].date) + " a " +
+        prettyDate(data[data.length - 1].date) +
+        ", da " + Math.min.apply(null, allY).toFixed(1) + " a " + Math.max.apply(null, allY).toFixed(1) + " kg"
+    });
+
+    // griglia orizzontale: linee sottili continue, un passo sopra la superficie
+    for (var g = yMin; g <= yMax + 1e-9; g += step) {
+      var gy = Y(g);
+      svg.appendChild(svgEl("line", {
+        x1: PAD_L, y1: gy, x2: W - PAD_R, y2: gy,
+        stroke: "var(--chart-grid)", "stroke-width": 1
+      }));
+      var lab = svgEl("text", {
+        x: PAD_L - 6, y: gy + 3.5,
+        "text-anchor": "end",
+        fill: "var(--ink-faint)",
+        "font-size": "9.5",
+        "font-family": "var(--mono)",
+        "style": "font-variant-numeric:tabular-nums"
+      });
+      lab.textContent = (Math.round(g * 10) / 10).toFixed(step < 1 ? 1 : 0);
+      svg.appendChild(lab);
+    }
+
+    // etichette asse x: solo prima e ultima, per non affollare
+    [[data[0].date, PAD_L, "start"], [data[data.length - 1].date, W - PAD_R, "end"]].forEach(function (t) {
+      var e = svgEl("text", {
+        x: t[1], y: H - 7, "text-anchor": t[2],
+        fill: "var(--ink-faint)", "font-size": "9.5", "font-family": "var(--mono)"
+      });
+      e.textContent = shortDate(t[0]);
+      svg.appendChild(e);
+    });
+
+    // punti grezzi: contesto recessivo, non una seconda serie
+    data.forEach(function (e) {
+      svg.appendChild(svgEl("circle", {
+        cx: X(dateMs(e.date)), cy: Y(e.kg), r: 3.2,
+        fill: "var(--chart-dot)",
+        stroke: "var(--surface)", "stroke-width": 1.5
+      }));
+    });
+
+    // la serie: media mobile 7 giorni
+    var d = trendVals.map(function (v, i) {
+      return (i ? "L" : "M") + X(xs[i]).toFixed(1) + " " + Y(v).toFixed(1);
+    }).join(" ");
+    svg.appendChild(svgEl("path", {
+      d: d, fill: "none",
+      stroke: "var(--accent)", "stroke-width": 2,
+      "stroke-linejoin": "round", "stroke-linecap": "round"
+    }));
+
+    // marcatore finale + etichetta diretta solo sull'ultimo valore
+    var lx = X(xs[xs.length - 1]), ly = Y(trendVals[trendVals.length - 1]);
+    svg.appendChild(svgEl("circle", {
+      cx: lx, cy: ly, r: 4.5,
+      fill: "var(--accent)", stroke: "var(--surface)", "stroke-width": 2
+    }));
+    var endLab = svgEl("text", {
+      x: Math.min(lx + 8, W - PAD_R), y: Math.max(ly - 8, 12),
+      "text-anchor": lx > W - 60 ? "end" : "start",
+      fill: "var(--ink)", "font-size": "11", "font-weight": "600"
+    });
+    endLab.textContent = trendVals[trendVals.length - 1].toFixed(1) + " kg";
+    svg.appendChild(endLab);
+
+    // livello interattivo: crosshair + tooltip al tocco, punto più vicino
+    var cross = svgEl("line", {
+      x1: 0, y1: PAD_T, x2: 0, y2: PLOT_H,
+      stroke: "var(--line-strong)", "stroke-width": 1, opacity: "0"
+    });
+    var focusDot = svgEl("circle", {
+      cx: 0, cy: 0, r: 5,
+      fill: "var(--accent)", stroke: "var(--surface)", "stroke-width": 2, opacity: "0"
+    });
+    svg.appendChild(cross); svg.appendChild(focusDot);
+
+    var hit = svgEl("rect", {
+      x: PAD_L, y: 0, width: innerW, height: PLOT_H,
+      fill: "transparent", style: "cursor:crosshair"
+    });
+    svg.appendChild(hit);
+
+    var focusIdx = -1;
+    function focusAt(i) {
+      if (i < 0 || i >= data.length) return;
+      focusIdx = i;
+      var px = X(xs[i]), py = Y(data[i].kg);
+      cross.setAttribute("x1", px); cross.setAttribute("x2", px);
+      cross.setAttribute("opacity", "1");
+      focusDot.setAttribute("cx", px); focusDot.setAttribute("cy", py);
+      focusDot.setAttribute("opacity", "1");
+      tip.innerHTML = "<b>" + data[i].kg.toFixed(1) + " kg</b> · " + shortDate(data[i].date) +
+        "<br>tendenza " + trendVals[i].toFixed(1) + " kg";
+      tip.hidden = false;
+      var scale = wrap.clientWidth / W;
+      var left = px * scale;
+      tip.style.left = Math.min(Math.max(left, 44), wrap.clientWidth - 44) + "px";
+      tip.style.top = (py * scale) + "px";
+    }
+    function clearFocus() {
+      cross.setAttribute("opacity", "0");
+      focusDot.setAttribute("opacity", "0");
+      tip.hidden = true;
+      focusIdx = -1;
+    }
+    function nearest(clientX) {
+      var r = svg.getBoundingClientRect();
+      var vx = ((clientX - r.left) / r.width) * W;
+      var best = 0, bd = Infinity;
+      for (var i = 0; i < xs.length; i++) {
+        var dd = Math.abs(X(xs[i]) - vx);
+        if (dd < bd) { bd = dd; best = i; }
+      }
+      return best;
+    }
+    hit.addEventListener("pointerdown", function (e) { focusAt(nearest(e.clientX)); });
+    hit.addEventListener("pointermove", function (e) { if (e.pressure > 0 || e.buttons || e.pointerType === "mouse") focusAt(nearest(e.clientX)); });
+    hit.addEventListener("pointerleave", clearFocus);
+    svg.addEventListener("blur", clearFocus);
+    // stessa informazione da tastiera
+    svg.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowRight") { focusAt(focusIdx < 0 ? 0 : Math.min(focusIdx + 1, data.length - 1)); e.preventDefault(); }
+      else if (e.key === "ArrowLeft") { focusAt(focusIdx < 0 ? data.length - 1 : Math.max(focusIdx - 1, 0)); e.preventDefault(); }
+      else if (e.key === "Escape") clearFocus();
+    });
+
+    wrap.appendChild(svg);
+  }
+
+  /* ---------- elenco misurazioni (la vista tabellare del grafico) ---------- */
+  function renderWeightList() {
+    var host = $("wList");
+    host.innerHTML = "";
+    var data = inRange(weights, wRange).slice().reverse();
+    if (!data.length) {
+      var e = document.createElement("div");
+      e.className = "empty";
+      e.textContent = "Nessuna misurazione in questo intervallo.";
+      host.appendChild(e);
+      return;
+    }
+    data.forEach(function (entry, i) {
+      var row = document.createElement("div"); row.className = "w-row";
+      var d = document.createElement("div"); d.className = "wd"; d.textContent = prettyDate(entry.date);
+      var k = document.createElement("div"); k.className = "wk"; k.textContent = entry.kg.toFixed(1) + " kg";
+      var delta = document.createElement("div"); delta.className = "wdelta";
+      var prev = data[i + 1];
+      delta.textContent = prev ? ((entry.kg - prev.kg >= 0 ? "+" : "−") + Math.abs(entry.kg - prev.kg).toFixed(1)) : "";
+      var del = document.createElement("button");
+      del.type = "button"; del.className = "w-del"; del.textContent = "✕";
+      del.setAttribute("aria-label", "Elimina la pesata del " + prettyDate(entry.date));
+      del.addEventListener("click", function () {
+        ask("Eliminare la pesata del " + prettyDate(entry.date) + " (" + entry.kg.toFixed(1) + " kg)?", "Elimina", function () {
+          weights = weights.filter(function (x) { return x.date !== entry.date; });
+          saveWeights(); renderWeightScreen(); renderWeightSummary();
+        });
+      });
+      row.appendChild(d); row.appendChild(delta); row.appendChild(k); row.appendChild(del);
+      host.appendChild(row);
+    });
+  }
+
+  function renderRanges() {
+    var host = $("wRanges");
+    host.innerHTML = "";
+    [[30, "30 giorni"], [90, "90 giorni"], [0, "Tutto"]].forEach(function (r) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = r[1];
+      b.setAttribute("aria-pressed", String(wRange === r[0]));
+      b.addEventListener("click", function () { wRange = r[0]; renderWeightScreen(); });
+      host.appendChild(b);
+    });
+  }
+
+  function renderWeightScreen() {
+    renderRanges();
+    renderWeightStats();
+    renderWeightChart();
+    renderWeightList();
+    renderWeightSummary();
+  }
+
+  var resizeTimer = null;
+  window.addEventListener("resize", function () {
+    if ($("screen-weight").hidden) return;
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(renderWeightChart, 150);
+  });
+
   /* ---------- SCHERMO ACCESO ---------- */
   function requestWake() {
     try {
@@ -622,6 +1058,15 @@
     if (rest.id) { rest.endsAt += 15000; tickRest(); }
   });
   $("restSkip").addEventListener("click", stopRest);
+  wireWeightInput("wInput", "wSave");
+  wireWeightInput("wInput2", "wSave2");
+  $("wOpen").addEventListener("click", function () {
+    setTitle("Peso corporeo", weights.length + (weights.length === 1 ? " misurazione" : " misurazioni"));
+    renderWeightScreen();
+    show("weight");
+    // il grafico si misura sul contenitore: va ridisegnato ora che è visibile
+    requestAnimationFrame(renderWeightChart);
+  });
   $("exportBtn").addEventListener("click", exportData);
   $("importBtn").addEventListener("click", function () { $("importFile").click(); });
   $("importFile").addEventListener("change", function (e) {

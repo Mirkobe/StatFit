@@ -14,6 +14,8 @@
   --warn-soft:#f6ecd9;
   --line:#dcdedf;
   --line-strong:#bcc0c3;
+  --chart-dot:#b6bcc1;
+  --chart-grid:#ececeb;
   --shadow:0 1px 2px rgba(20,25,30,.06),0 4px 14px rgba(20,25,30,.05);
   --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --mono:ui-monospace,"Roboto Mono","SFMono-Regular",Menlo,Consolas,monospace;
@@ -36,6 +38,8 @@
     --warn-soft:#332816;
     --line:#2e3439;
     --line-strong:#434a50;
+    --chart-dot:#4e565c;
+    --chart-grid:#262b30;
     --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 14px rgba(0,0,0,.25);
   }
 }
@@ -55,6 +59,8 @@
   --warn-soft:#332816;
   --line:#2e3439;
   --line-strong:#434a50;
+  --chart-dot:#4e565c;
+  --chart-grid:#262b30;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 14px rgba(0,0,0,.25);
 }
 
@@ -145,6 +151,9 @@ button{font-family:inherit;cursor:pointer}
 }
 .chip-accent{background:var(--accent-soft);color:var(--accent)}
 .chip-ok{background:var(--ok-soft);color:var(--ok)}
+.chip-warn{background:var(--warn-soft);color:var(--warn)}
+/* i chip con testo discorsivo usano il font di interfaccia, non il monospace dei numeri */
+.w-stat .chip{font-family:var(--sans);font-size:0.68rem;font-weight:600;letter-spacing:0}
 
 /* ---------- card ---------- */
 .card{
@@ -253,6 +262,100 @@ button{font-family:inherit;cursor:pointer}
 .backup-card p{margin:0 0 0.7rem;font-size:0.78rem;color:var(--ink-muted);line-height:1.45}
 .backup-actions{display:flex;gap:0.5rem}
 .backup-actions .btn{flex:1}
+
+/* ---------- peso ---------- */
+.weight-card{padding:0.9rem}
+.w-quick{display:flex;gap:0.5rem;margin-bottom:0.7rem}
+.w-field{flex:1;min-width:0}
+.w-quick .btn{flex:none}
+.w-summary{font-size:0.8rem;color:var(--ink-muted);line-height:1.45;margin-bottom:0.7rem}
+.w-summary strong{color:var(--ink);font-weight:600}
+
+.w-ranges{display:flex;gap:0.4rem}
+.w-ranges button{
+  flex:1;
+  border:1px solid var(--line);
+  background:var(--surface);
+  color:var(--ink-muted);
+  border-radius:8px;
+  padding:0.45rem 0.5rem;
+  font-size:0.75rem;
+  font-weight:600;
+}
+.w-ranges button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+
+.w-stats{display:grid;grid-template-columns:1fr 1fr;gap:0.1rem;padding:0}
+.w-stat{padding:0.85rem 0.9rem}
+.w-stat + .w-stat{border-left:1px solid var(--line)}
+.w-stat .lab{
+  font-size:0.66rem;
+  text-transform:uppercase;
+  letter-spacing:0.07em;
+  font-weight:600;
+  color:var(--ink-faint);
+  margin-bottom:0.3rem;
+}
+/* cifre proporzionali sui numeri grandi: tabular li fa sembrare slegati */
+.w-stat .val{font-size:1.45rem;font-weight:600;letter-spacing:-0.02em;line-height:1.1}
+.w-stat .val .u{font-size:0.8rem;font-weight:500;color:var(--ink-muted);margin-left:0.15rem}
+.w-stat .sub{font-size:0.7rem;color:var(--ink-faint);margin-top:0.25rem;line-height:1.35}
+.w-stat .chip{margin-top:0.35rem}
+
+.w-chartcard{padding:0.9rem}
+.w-chart-title{font-size:0.86rem;font-weight:600}
+.w-chart-sub{font-size:0.7rem;color:var(--ink-faint);margin:0.15rem 0 0.6rem;line-height:1.35}
+.w-chartwrap{position:relative}
+.w-chartwrap svg{display:block;width:100%;height:auto;touch-action:pan-y}
+.w-chartwrap svg:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.w-tip{
+  position:absolute;
+  z-index:5;
+  pointer-events:none;
+  background:var(--ink);
+  color:var(--bg);
+  border-radius:7px;
+  padding:0.35rem 0.5rem;
+  font-size:0.7rem;
+  line-height:1.35;
+  white-space:nowrap;
+  box-shadow:0 4px 14px rgba(0,0,0,.25);
+  transform:translate(-50%,-115%);
+}
+.w-tip b{font-weight:600}
+
+.w-row{
+  display:flex;
+  align-items:center;
+  gap:0.7rem;
+  padding:0.6rem 0.9rem;
+  border-bottom:1px solid var(--line);
+}
+.w-row:last-child{border-bottom:none}
+.w-row .wd{font-size:0.8rem;color:var(--ink-muted);flex:1}
+.w-row .wk{
+  font-family:var(--mono);
+  font-variant-numeric:tabular-nums;
+  font-size:0.85rem;
+  font-weight:600;
+}
+.w-row .wdelta{
+  font-family:var(--mono);
+  font-variant-numeric:tabular-nums;
+  font-size:0.72rem;
+  color:var(--ink-faint);
+  min-width:3.6rem;
+  text-align:right;
+}
+.w-del{
+  border:none;
+  background:transparent;
+  color:var(--ink-faint);
+  font-size:1rem;
+  line-height:1;
+  padding:0.3rem 0.35rem;
+  border-radius:6px;
+}
+.w-del:active{background:var(--surface-2);color:var(--ink)}
 
 /* ---------- allenamento ---------- */
 .ex{padding:0.85rem 0.9rem}
