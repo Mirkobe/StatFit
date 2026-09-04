@@ -48,11 +48,17 @@
     <div class="card weight-card">
       <div class="w-quick">
         <div class="field w-field">
-          <input id="wInput" type="number" inputmode="decimal" step="0.1" min="0" placeholder="76,5" aria-label="Peso di oggi in chilogrammi">
+          <input id="wInput" type="text" inputmode="decimal" autocomplete="off" placeholder="76,5" aria-label="Peso di oggi in chilogrammi">
           <span class="unit">kg</span>
         </div>
         <button class="btn btn-primary" id="wSave">Registra</button>
       </div>
+      <div class="w-daterow">
+        <span class="w-datelab">Giorno</span>
+        <input type="date" id="wDate" class="w-date" aria-label="Giorno della pesata">
+        <button type="button" class="w-reset" id="wReset" hidden>torna a oggi</button>
+      </div>
+      <div class="w-exists" id="wExists" hidden></div>
       <div class="w-summary" id="wSummary"></div>
       <button class="btn btn-block" id="wOpen">Grafico e storico</button>
     </div>
@@ -95,11 +101,17 @@
     <div class="card weight-card">
       <div class="w-quick">
         <div class="field w-field">
-          <input id="wInput2" type="number" inputmode="decimal" step="0.1" min="0" placeholder="76,5" aria-label="Peso di oggi in chilogrammi">
+          <input id="wInput2" type="text" inputmode="decimal" autocomplete="off" placeholder="76,5" aria-label="Peso di oggi in chilogrammi">
           <span class="unit">kg</span>
         </div>
         <button class="btn btn-primary" id="wSave2">Registra</button>
       </div>
+      <div class="w-daterow">
+        <span class="w-datelab">Giorno</span>
+        <input type="date" id="wDate2" class="w-date" aria-label="Giorno della pesata">
+        <button type="button" class="w-reset" id="wReset2" hidden>torna a oggi</button>
+      </div>
+      <div class="w-exists" id="wExists2" hidden></div>
       <div class="w-summary" id="wSummary2"></div>
     </div>
 

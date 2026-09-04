@@ -67,6 +67,12 @@
   /* =========================  UTIL  ========================= */
   function $(id) { return document.getElementById(id); }
 
+  // la tastiera italiana produce la virgola: va accettata ovunque si legga un numero
+  function parseNum(v) {
+    if (v === null || v === undefined || v === "") return NaN;
+    return parseFloat(String(v).replace(",", ".").trim());
+  }
+
   function fmt(n) {
     if (n === null || n === undefined || n === "") return "";
     var v = Number(n);
@@ -450,7 +456,7 @@
 
     var fw = document.createElement("div"); fw.className = "field";
     var iw = document.createElement("input");
-    iw.type = "number"; iw.inputMode = "decimal"; iw.step = "1.25"; iw.min = "0";
+    iw.type = "text"; iw.inputMode = "decimal"; iw.autocomplete = "off";
     iw.value = row.w; iw.placeholder = "kg";
     iw.setAttribute("aria-label", "Peso serie " + (i + 1) + " " + ex.name);
     iw.addEventListener("input", function () { row.w = iw.value; persistLive(); });
@@ -509,7 +515,7 @@
     var rows = live.entries[ex.slug] || [];
     var allTop = rows.length > 0, anyDone = false, maxW = 0;
     rows.forEach(function (r) {
-      var reps = parseInt(r.r, 10), w = parseFloat(r.w);
+      var reps = parseInt(r.r, 10), w = parseNum(r.w);
       if (r.done) anyDone = true;
       if (isNaN(reps) || reps < ex.max) allTop = false;
       if (!isNaN(w)) maxW = Math.max(maxW, w);
@@ -531,7 +537,10 @@
     day.exercises.forEach(function (ex) {
       var rows = live.entries[ex.slug] || [];
       var kept = rows.filter(function (r) { return r.done && r.r !== ""; })
-                     .map(function (r) { return { w: (r.w === "" ? 0 : Number(r.w)), r: Number(r.r) }; });
+                     .map(function (r) {
+                       var w = parseNum(r.w);
+                       return { w: isFinite(w) ? w : 0, r: Number(r.r) };
+                     });
       if (!kept.length) return;
       setsDone += kept.length;
       exOut.push({ slug: ex.slug, name: ex.name, sets: kept });
@@ -644,32 +653,87 @@
     return list.filter(function (e) { return dateMs(e.date) >= from; });
   }
 
-  function addWeight(value) {
-    var kg = parseFloat(String(value).replace(",", "."));
+  // limite inferiore ragionevole: intercetta anni digitati male (0202, 1900)
+  function minDateISO() {
+    var d = new Date();
+    d.setFullYear(d.getFullYear() - 5);
+    return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+  }
+  function validDate(iso) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(iso || "")) return false;
+    return iso <= todayISO() && iso >= minDateISO();
+  }
+  function entryFor(iso) {
+    var found = null;
+    weights.forEach(function (e) { if (e.date === iso) found = e; });
+    return found;
+  }
+
+  function addWeight(value, iso) {
+    var kg = parseNum(value);
     if (!isFinite(kg) || kg <= 0 || kg > 500) { toast("Inserisci un peso valido"); return false; }
-    var today = todayISO();
-    var existing = null;
-    weights.forEach(function (e) { if (e.date === today) existing = e; });
+    var date = iso || todayISO();
+    if (!validDate(date)) {
+      toast(date > todayISO() ? "Non puoi registrare un peso futuro" : "Data non valida");
+      return false;
+    }
+    var existing = entryFor(date);
     if (existing) existing.kg = kg;
-    else weights.push({ date: today, kg: kg });
+    else weights.push({ date: date, kg: kg });
     weights = normalizeWeights(weights);
     saveWeights();
-    toast(existing ? "Peso di oggi aggiornato" : "Peso registrato");
+    var when = date === todayISO() ? "di oggi" : "del " + prettyDate(date);
+    toast(existing ? "Peso " + when + " aggiornato" : "Peso " + when + " registrato");
     return true;
   }
 
-  function wireWeightInput(inputId, buttonId) {
-    var input = $(inputId), btn = $(buttonId);
+  function wireWeightInput(inputId, buttonId, dateId, resetId, existsId) {
+    var input = $(inputId), btn = $(buttonId), date = $(dateId),
+        reset = $(resetId), exists = $(existsId);
+
+    date.max = todayISO();
+    date.min = minDateISO();
+
+    // riporta il controllo su oggi: è lo stato in cui deve trovarsi al prossimo utilizzo
+    function toToday() {
+      date.value = todayISO();
+      refresh();
+    }
+    // mostra se quel giorno è già stato registrato, senza toccare ciò che ha digitato
+    function refresh() {
+      var iso = date.value;
+      var isToday = iso === todayISO();
+      date.classList.toggle("is-past", !isToday && !!iso);
+      reset.hidden = isToday || !iso;
+      btn.textContent = isToday ? "Registra" : "Registra il " + shortDate(iso);
+      var e = iso && validDate(iso) ? entryFor(iso) : null;
+      if (e) {
+        exists.hidden = false;
+        exists.textContent = "Quel giorno è già registrato a " + e.kg.toFixed(1) +
+          " kg: salvando lo sostituisci.";
+      } else {
+        exists.hidden = true;
+      }
+    }
+
     function submit() {
-      if (addWeight(input.value)) {
+      if (addWeight(input.value, date.value)) {
         input.value = "";
         input.blur();
+        toToday();                       // torna subito al percorso rapido
         renderWeightSummary();
         if (!$("screen-weight").hidden) renderWeightScreen();
       }
     }
+
     btn.addEventListener("click", submit);
     input.addEventListener("keydown", function (e) { if (e.key === "Enter") submit(); });
+    date.addEventListener("change", refresh);
+    date.addEventListener("input", refresh);
+    reset.addEventListener("click", toToday);
+
+    toToday();
+    return { refresh: refresh, toToday: toToday };
   }
 
   /* ---------- riepilogo in home ---------- */
@@ -691,6 +755,9 @@
     var html = texts.join("<br>");
     if (host) host.innerHTML = html;
     if (host2) host2.innerHTML = html;
+
+    // i moduli vengono collegati prima del caricamento dei dati: qui sono aggiornati
+    if (typeof weightForms !== "undefined" && weightForms) refreshWeightForms();
   }
 
   /* ---------- statistiche ---------- */
@@ -1058,8 +1125,13 @@
     if (rest.id) { rest.endsAt += 15000; tickRest(); }
   });
   $("restSkip").addEventListener("click", stopRest);
-  wireWeightInput("wInput", "wSave");
-  wireWeightInput("wInput2", "wSave2");
+  var weightForms = [
+    wireWeightInput("wInput", "wSave", "wDate", "wReset", "wExists"),
+    wireWeightInput("wInput2", "wSave2", "wDate2", "wReset2", "wExists2")
+  ];
+  function refreshWeightForms() {
+    weightForms.forEach(function (f) { f.refresh(); });
+  }
   $("wOpen").addEventListener("click", function () {
     setTitle("Peso corporeo", weights.length + (weights.length === 1 ? " misurazione" : " misurazioni"));
     renderWeightScreen();

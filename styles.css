@@ -271,6 +271,46 @@ button{font-family:inherit;cursor:pointer}
 .w-summary{font-size:0.8rem;color:var(--ink-muted);line-height:1.45;margin-bottom:0.7rem}
 .w-summary strong{color:var(--ink);font-weight:600}
 
+/* riga data: resta su "oggi" e non intralcia la registrazione rapida */
+.w-daterow{display:flex;align-items:center;gap:0.5rem;margin-bottom:0.6rem;flex-wrap:wrap}
+.w-datelab{
+  font-size:0.68rem;
+  text-transform:uppercase;
+  letter-spacing:0.07em;
+  font-weight:600;
+  color:var(--ink-faint);
+}
+.w-date{
+  font-family:var(--mono);
+  font-size:0.78rem;
+  color:var(--ink);
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:7px;
+  padding:0.32rem 0.45rem;
+  min-width:0;
+}
+.w-date:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.w-date.is-past{border-color:var(--accent);color:var(--accent)}
+.w-reset{
+  border:none;
+  background:transparent;
+  color:var(--accent);
+  font-size:0.72rem;
+  font-weight:600;
+  padding:0.3rem 0.2rem;
+  text-decoration:underline;
+}
+.w-exists{
+  font-size:0.72rem;
+  color:var(--warn);
+  background:var(--warn-soft);
+  border-radius:7px;
+  padding:0.4rem 0.55rem;
+  margin-bottom:0.6rem;
+  line-height:1.4;
+}
+
 .w-ranges{display:flex;gap:0.4rem}
 .w-ranges button{
   flex:1;

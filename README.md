@@ -72,6 +72,16 @@ Disinstallare l'app o cancellare i dati del browser cancella lo storico: **espor
 La sezione peso registra una pesata al giorno (reinserirla lo stesso giorno la corregge,
 non la duplica) e la mostra su un grafico.
 
+**Registrazione.** Il campo `Giorno` è impostato su oggi, quindi registrare la pesata odierna
+resta di due tocchi: scrivi il numero e premi *Registra*. Per recuperare un giorno passato
+cambi la data: il pulsante diventa *"Registra il 30 ago"*, e se quel giorno era già stato
+registrato l'app te lo dice prima di sovrascriverlo. Dopo il salvataggio la data torna da sola
+su oggi. Le date future sono rifiutate (romperebbero il calcolo del trend).
+
+I campi numerici accettano **sia la virgola sia il punto** (`75,8` e `75.8`): sono campi di
+testo con tastierino decimale, non `input type=number`, che scarta la virgola prodotta dalla
+tastiera italiana.
+
 **Perché il grafico mostra due cose diverse.** Il peso giornaliero oscilla di 1-2 kg per
 acqua, glicogeno e contenuto intestinale: la singola pesata non dice quasi nulla. Quindi:
 
