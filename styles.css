@@ -537,6 +537,15 @@ button{font-family:inherit;cursor:pointer}
 }
 
 .status{font-size:0.68rem;color:var(--ink-faint);text-align:center;padding:0.4rem 1rem 0;line-height:1.4}
+.version{
+  font-family:var(--mono);
+  font-size:0.63rem;
+  color:var(--ink-faint);
+  opacity:0.75;
+  text-align:center;
+  padding:0.25rem 1rem 0;
+  letter-spacing:0.02em;
+}
 
 /* ---------- dialog ---------- */
 .overlay{

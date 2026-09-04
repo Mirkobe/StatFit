@@ -49,12 +49,18 @@ Da quel momento funziona anche in modalità aereo.
 
 ## Aggiornare l'app
 
-Il service worker serve la copia in cache. Dopo aver modificato i file:
+Il service worker serve la copia in cache. Dopo aver modificato i file, cambia **entrambi**
+questi valori, tenendoli allineati:
 
-1. cambia la versione in `sw.js` (`var CACHE = "diario-ul-v2";`);
-2. ripubblica la cartella.
+1. `var CACHE = "diario-ul-v4";` in `sw.js` — è ciò che fa scattare l'aggiornamento;
+2. `var APP_VERSION = "4";` e `APP_DATE` in cima ad `app.js` — è ciò che l'app mostra.
 
-Alla successiva apertura online l'app scarica la versione nuova e cancella la vecchia cache.
+Poi ripubblica la cartella. Alla successiva apertura online l'app scarica la versione nuova
+e cancella la vecchia cache.
+
+In fondo alla schermata iniziale l'app scrive la versione del codice **realmente in
+esecuzione**: se il telefono sta ancora servendo una copia vecchia dalla cache, lì compare
+il numero vecchio. È il modo più rapido per capire se un aggiornamento è arrivato davvero.
 
 ## Dati e backup
 

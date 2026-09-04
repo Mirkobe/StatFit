@@ -43,6 +43,12 @@
     ]}
   ];
 
+  /* Versione del codice effettivamente in esecuzione: se il telefono sta ancora
+     servendo una copia vecchia dalla cache, qui si vede il numero vecchio.
+     Va tenuta allineata a CACHE dentro sw.js. */
+  var APP_VERSION = "4";
+  var APP_DATE = "4 set 2026";
+
   var DELOAD_AFTER = 20;   // 5 settimane x 4 sedute
   var BACKUP_NUDGE = 12;   // sedute senza backup prima del promemoria
 
@@ -354,6 +360,7 @@
     renderWeightSummary();
 
     $("statusLine").textContent = "Dati salvati su questo dispositivo · " + sessions.length + " allenamenti in archivio";
+    $("versionLine").textContent = "versione " + APP_VERSION + " · " + APP_DATE;
   }
 
   function renderList(host, items, emptyMsg) {

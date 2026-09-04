@@ -3,7 +3,7 @@
    così dopo la prima apertura l'app funziona completamente senza rete.
    Per pubblicare una versione nuova basta cambiare CACHE. */
 
-var CACHE = "diario-ul-v3";
+var CACHE = "diario-ul-v4";
 
 var ASSETS = [
   "./",
