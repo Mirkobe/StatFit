@@ -1,0 +1,35 @@
+{
+  "name": "Diario Upper/Lower",
+  "short_name": "Upper/Lower",
+  "description": "Diario di allenamento Upper/Lower a 4 giorni: carichi, ripetizioni, timer di recupero e doppia progressione.",
+  "lang": "it",
+  "dir": "ltr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "id": "diario-upper-lower",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f7f6f4",
+  "theme_color": "#2b4c6f",
+  "categories": ["health", "fitness", "productivity"],
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Diario Upper/Lower</title>
+<meta name="description" content="Diario di allenamento Upper/Lower a 4 giorni, con timer di recupero e doppia progressione.">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icons/icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<meta name="theme-color" content="#f7f6f4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#131619" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+
+<div class="app">
+
+  <div class="topbar">
+    <button class="btn-ghost" id="backBtn" hidden aria-label="Indietro">‹</button>
+    <h1 id="title">Diario Upper/Lower<span class="sub" id="subtitle">4 giorni · doppia progressione</span></h1>
+    <button class="btn-ghost" id="histBtn">Storico</button>
+  </div>
+
+  <!-- ============ HOME ============ -->
+  <section id="screen-home" class="stack">
+
+    <div id="installCard" class="card banner-install" hidden>
+      <div>Installa il diario sul telefono: si apre a schermo intero e funziona senza connessione.</div>
+      <button class="btn btn-primary" id="installBtn">Installa</button>
+    </div>
+
+    <div id="deloadBanner" hidden></div>
+
+    <div class="card next-card">
+      <div class="eyebrow">Prossimo allenamento</div>
+      <h2 id="nextName">Upper A</h2>
+      <div class="meta" id="nextMeta">6 esercizi</div>
+      <button class="btn btn-primary btn-lg btn-block" id="startBtn">Inizia allenamento</button>
+      <div class="day-switch" id="daySwitch"></div>
+    </div>
+
+    <div class="section-label">Ultimi allenamenti</div>
+    <div class="card" id="recentList"></div>
+
+    <div class="section-label">Backup</div>
+    <div class="card backup-card">
+      <p id="backupInfo">Nessun backup esportato.</p>
+      <div class="backup-actions">
+        <button class="btn" id="exportBtn">Esporta dati</button>
+        <button class="btn" id="importBtn">Importa</button>
+        <input type="file" id="importFile" accept="application/json,.json" hidden>
+      </div>
+    </div>
+
+    <div class="status" id="statusLine"></div>
+  </section>
+
+  <!-- ============ ALLENAMENTO ============ -->
+  <section id="screen-workout" hidden>
+    <div class="stack">
+      <div class="card" id="exList"></div>
+    </div>
+    <div class="footbar" id="workoutFoot">
+      <div class="footbar-inner">
+        <button class="btn" id="cancelBtn">Annulla</button>
+        <button class="btn btn-primary btn-block" id="finishBtn">Termina allenamento</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ STORICO ============ -->
+  <section id="screen-history" class="stack" hidden>
+    <div class="section-label">Storico completo</div>
+    <div class="card" id="fullList"></div>
+  </section>
+
+  <!-- ============ DETTAGLIO ============ -->
+  <section id="screen-detail" class="stack" hidden>
+    <div class="card" id="detailCard"></div>
+  </section>
+
+  <!-- ============ TIMER RECUPERO ============ -->
+  <div class="restbar" id="restbar" hidden>
+    <div class="restbar-inner">
+      <div class="rest-time" id="restTime">1:30</div>
+      <div class="rest-label" id="restLabel">Recupero</div>
+      <button class="btn" id="rest15">+15s</button>
+      <button class="btn" id="restSkip">Salta</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+</div>
+
+<script src="./app.js" defer></script>
+</body>
+</html>
