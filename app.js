@@ -46,8 +46,8 @@
   /* Versione del codice effettivamente in esecuzione: se il telefono sta ancora
      servendo una copia vecchia dalla cache, qui si vede il numero vecchio.
      Va tenuta allineata a CACHE dentro sw.js. */
-  var APP_VERSION = "5";
-  var APP_DATE = "4 set 2026";
+  var APP_VERSION = "6";
+  var APP_DATE = "21 set 2026";
 
   var DELOAD_AFTER = 20;   // 5 settimane x 4 sedute
   var BACKUP_NUDGE = 12;   // sedute senza backup prima del promemoria
@@ -259,9 +259,7 @@
     rest.endsAt = Date.now() + sec * 1000;
     rest.left = sec;
     $("restLabel").textContent = label || "Recupero";
-    $("restbar").hidden = false;
-    $("workoutFoot").style.paddingBottom = "5.2rem";
-    document.body.classList.add("rest-on");
+    $("restChip").hidden = false;
     paintRest();
     rest.id = setInterval(tickRest, 250);
   }
@@ -271,13 +269,35 @@
     if (left <= 0) { ding(); stopRest(); return; }
     if (left !== rest.left) { rest.left = left; paintRest(); }
   }
-  function paintRest() { $("restTime").textContent = clock(Math.max(0, rest.left)); }
+  function paintRest() {
+    var left = Math.max(0, rest.left);
+    $("restTime").textContent = clock(left);
+    // ultimi 10 secondi in colore di avviso: leggibile con la coda dell'occhio
+    $("restChip").classList.toggle("ending", left > 0 && left <= 10);
+  }
   function stopRest() {
     if (rest.id) { clearInterval(rest.id); rest.id = null; }
     rest.left = 0; rest.endsAt = 0;
-    $("restbar").hidden = true;
-    $("workoutFoot").style.paddingBottom = "";
-    document.body.classList.remove("rest-on");
+    var chip = $("restChip");
+    chip.hidden = true;
+    chip.classList.remove("ending");
+    closeRestMenu();
+  }
+
+  function openRestMenu() {
+    $("restMenu").hidden = false;
+    $("restChip").setAttribute("aria-expanded", "true");
+  }
+  function closeRestMenu() {
+    $("restMenu").hidden = true;
+    $("restChip").setAttribute("aria-expanded", "false");
+  }
+  function addRest(sec) {
+    if (!rest.id) return;
+    rest.endsAt += sec * 1000;
+    tickRest();
+    paintRest();
+    closeRestMenu();
   }
   function ding() {
     try { if (navigator.vibrate) navigator.vibrate([180, 90, 180]); } catch (e) {}
@@ -404,7 +424,10 @@
       }
       entries[ex.slug] = rows;
     });
-    live = { dayKey: dayKey, date: todayISO(), started: Date.now(), entries: entries };
+    // le note NON vengono precompilate con quelle della volta scorsa: sarebbero
+    // riscritte nello storico di oggi senza che sia successo davvero nulla.
+    // La nota precedente resta visibile come riferimento sopra il campo.
+    live = { dayKey: dayKey, date: todayISO(), started: Date.now(), entries: entries, notes: {} };
     persistLive();
   }
 
@@ -441,6 +464,11 @@
           last.sets.map(function (s) { return fmt(s.w) + "kg × " + s.r; }).join("  ·  ");
         wrap.appendChild(lastLine);
       }
+      if (last && last.note) {
+        var lastNote = document.createElement("div"); lastNote.className = "ex-lastnote";
+        lastNote.textContent = "Nota precedente: " + last.note;
+        wrap.appendChild(lastNote);
+      }
 
       rows.forEach(function (row, i) { wrap.appendChild(setRow(ex, row, i)); });
 
@@ -449,9 +477,47 @@
       hint.setAttribute("data-hint", ex.slug);
       wrap.appendChild(hint);
 
+      wrap.appendChild(noteField(ex));
+
       host.appendChild(wrap);
       refreshHint(ex);
     });
+  }
+
+  /* Campo note: compare come link finché è vuoto, per non allungare la scheda
+     di sei riquadri di testo che nella maggior parte delle sedute restano vuoti. */
+  function noteField(ex) {
+    if (!live.notes) live.notes = {};
+    var frag = document.createDocumentFragment();
+
+    var area = document.createElement("textarea");
+    area.className = "ex-note";
+    area.rows = 2;
+    area.placeholder = "Sensazioni, regolazioni dell'attrezzo, dolori…";
+    area.value = live.notes[ex.slug] || "";
+    area.setAttribute("aria-label", "Note per " + ex.name);
+    area.addEventListener("input", function () {
+      live.notes[ex.slug] = area.value;
+      persistLive();
+    });
+
+    var add = document.createElement("button");
+    add.type = "button";
+    add.className = "ex-noteadd";
+    add.textContent = "＋ nota";
+    add.addEventListener("click", function () {
+      add.hidden = true;
+      area.hidden = false;
+      area.focus();
+    });
+
+    var hasNote = !!(live.notes[ex.slug] || "").trim();
+    area.hidden = !hasNote;
+    add.hidden = hasNote;
+
+    frag.appendChild(add);
+    frag.appendChild(area);
+    return frag;
   }
 
   function setRow(ex, row, i) {
@@ -543,6 +609,7 @@
 
     day.exercises.forEach(function (ex) {
       var rows = live.entries[ex.slug] || [];
+      var note = ((live.notes && live.notes[ex.slug]) || "").trim();
       var kept = rows.filter(function (r) { return r.done && r.r !== ""; })
                      .map(function (r) {
                        var w = parseNum(r.w);
@@ -550,12 +617,19 @@
                      });
       if (!kept.length) return;
       setsDone += kept.length;
-      exOut.push({ slug: ex.slug, name: ex.name, sets: kept });
+
+      var out = { slug: ex.slug, name: ex.name, sets: kept };
+      if (note) out.note = note;
+      exOut.push(out);
 
       var allTop = kept.length >= ex.sets && kept.every(function (s) { return s.r >= ex.max; });
       var maxW = kept.reduce(function (a, s) { return Math.max(a, s.w); }, 0);
       var rec = { date: live.date, sets: kept };
       if (allTop && maxW > 0) rec.suggest = roundLoad(Math.max(maxW + 1.25, maxW * 1.025));
+      // la nota più recente resta come riferimento finché non ne scrivi un'altra:
+      // le regolazioni dell'attrezzo servono anche nelle sedute in cui non annoti nulla
+      var carried = note || (progress[ex.slug] && progress[ex.slug].note) || "";
+      if (carried) rec.note = carried;
       progress[ex.slug] = rec;
     });
 
@@ -607,6 +681,11 @@
       var st = document.createElement("div"); st.className = "det-sets";
       st.textContent = (ex.sets || []).map(function (x) { return fmt(x.w) + "kg × " + x.r; }).join("   ·   ");
       d.appendChild(n); d.appendChild(st);
+      if (ex.note) {
+        var nt = document.createElement("div"); nt.className = "det-note";
+        nt.textContent = ex.note;
+        d.appendChild(nt);
+      }
       host.appendChild(d);
     });
     show("detail");
@@ -1128,10 +1207,22 @@
     }
     goHome();
   });
-  $("rest15").addEventListener("click", function () {
-    if (rest.id) { rest.endsAt += 15000; tickRest(); }
+  $("restChip").addEventListener("click", function (e) {
+    e.stopPropagation();
+    if ($("restMenu").hidden) openRestMenu(); else closeRestMenu();
   });
+  $("rest15").addEventListener("click", function () { addRest(15); });
+  $("rest30").addEventListener("click", function () { addRest(30); });
   $("restSkip").addEventListener("click", stopRest);
+  // toccando altrove il menù si chiude, senza intercettare il tocco sottostante
+  document.addEventListener("click", function (e) {
+    if ($("restMenu").hidden) return;
+    if ($("restMenu").contains(e.target)) return;
+    closeRestMenu();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !$("restMenu").hidden) closeRestMenu();
+  });
   var weightForms = [
     wireWeightInput("wInput", "wSave", "wDate", "wReset", "wExists"),
     wireWeightInput("wInput2", "wSave2", "wDate2", "wReset2", "wExists2")

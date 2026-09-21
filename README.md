@@ -52,8 +52,8 @@ Da quel momento funziona anche in modalità aereo.
 Il service worker serve la copia in cache. Dopo aver modificato i file, cambia **entrambi**
 questi valori, tenendoli allineati:
 
-1. `var CACHE = "diario-ul-v4";` in `sw.js` — è ciò che fa scattare l'aggiornamento;
-2. `var APP_VERSION = "4";` e `APP_DATE` in cima ad `app.js` — è ciò che l'app mostra.
+1. `var CACHE = "diario-ul-v6";` in `sw.js` — è ciò che fa scattare l'aggiornamento;
+2. `var APP_VERSION = "6";` e `APP_DATE` in cima ad `app.js` — è ciò che l'app mostra.
 
 Poi ripubblica la cartella. Alla successiva apertura online l'app scarica la versione nuova
 e cancella la vecchia cache.
@@ -78,6 +78,25 @@ stessa cache — in parallelo o in sequenza, con `cache.put` o `cache.add`, e `a
 richieste in modalità `reload` — falliscono con `InvalidAccessError: Entry already exists`:
 l'installazione salta, il worker non attiva mai e l'app resta senza modalità offline **senza
 alcun errore visibile**, perché la registrazione risulta comunque riuscita.
+
+## Durante l'allenamento
+
+**Timer di recupero.** Spuntando una serie parte il conto alla rovescia con il recupero
+previsto per quell'esercizio. Compare **in alto a destra nella barra del titolo**, che è
+sticky: resta visibile mentre scorri gli esercizi. Negli ultimi 10 secondi cambia colore.
+Toccandolo si apre un menù con **+15s**, **+30s** e **Salta** — in alto non c'è spazio per
+quei comandi accanto al numero su uno schermo da telefono.
+
+**Note per esercizio.** Sotto ogni esercizio c'è *＋ nota*: aprendola compare un campo di
+testo libero (sensazioni, regolazioni dell'attrezzo, dolori). Finché è vuota resta un link,
+per non allungare la scheda con sei riquadri inutilizzati.
+
+La nota viene salvata **nella seduta** e si rilegge nello storico. La più recente resta
+visibile come *"Nota precedente"* sopra l'esercizio finché non ne scrivi un'altra, così le
+regolazioni dell'attrezzo restano disponibili anche nelle sedute in cui non annoti nulla.
+
+Il campo di oggi **non viene precompilato** con la nota vecchia: verrebbe riscritta nello
+storico come se fosse successa oggi.
 
 ## Dati e backup
 

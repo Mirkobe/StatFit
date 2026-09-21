@@ -21,6 +21,20 @@
     <button class="btn-ghost" id="backBtn" hidden aria-label="Indietro">‹</button>
     <h1 id="title">Diario Upper/Lower<span class="sub" id="subtitle">4 giorni · doppia progressione</span></h1>
     <button class="btn-ghost" id="histBtn">Storico</button>
+
+    <button class="resttimer" id="restChip" hidden aria-haspopup="true" aria-expanded="false"
+            aria-label="Recupero in corso: tocca per aggiungere tempo o saltare">
+      <span id="restTime">1:30</span>
+    </button>
+
+    <div class="restmenu" id="restMenu" hidden role="menu">
+      <div class="restmenu-label" id="restLabel">Recupero</div>
+      <div class="restmenu-actions">
+        <button class="btn" id="rest15" role="menuitem">+15s</button>
+        <button class="btn" id="rest30" role="menuitem">+30s</button>
+        <button class="btn btn-primary" id="restSkip" role="menuitem">Salta</button>
+      </div>
+    </div>
   </div>
 
   <!-- ============ HOME ============ -->
@@ -139,16 +153,6 @@
   <section id="screen-detail" class="stack" hidden>
     <div class="card" id="detailCard"></div>
   </section>
-
-  <!-- ============ TIMER RECUPERO ============ -->
-  <div class="restbar" id="restbar" hidden>
-    <div class="restbar-inner">
-      <div class="rest-time" id="restTime">1:30</div>
-      <div class="rest-label" id="restLabel">Recupero</div>
-      <button class="btn" id="rest15">+15s</button>
-      <button class="btn" id="restSkip">Salta</button>
-    </div>
-  </div>
 
   <div class="toast" id="toast" hidden></div>
 
